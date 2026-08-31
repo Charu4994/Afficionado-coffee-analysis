@@ -30,13 +30,13 @@ filtered = df[
     df["store_location"].isin(location_filter)
 ]
 
-# --- KPI cards (upar top pe numbers) ---
+# --- KPI cards ---
 col1, col2, col3 = st.columns(3)
 col1.metric("Total Revenue", f"₹{filtered['revenue'].sum():,.2f}")
 col2.metric("Total Transactions", f"{filtered.shape[0]:,}")
 col3.metric("Unique Products", filtered["product_type"].nunique())
 
-# --- Module 1: Product ranking ---
+# --- Module 1: Product ranking table ---
 st.subheader("Top Products by Revenue & Volume")
 ranking = filtered.groupby("product_type").agg(
     total_revenue=("revenue", "sum"),
@@ -44,22 +44,67 @@ ranking = filtered.groupby("product_type").agg(
 ).reset_index().sort_values("total_revenue", ascending=False).head(top_n)
 st.dataframe(ranking, use_container_width=True)
 
-# --- Module 2: Category revenue distribution ---
+# --- Module 2: Bar chart — Top N products by revenue ---
+st.subheader(f"Top {top_n} Products by Revenue (Bar Chart)")
+fig_bar = px.bar(
+    ranking.sort_values("total_revenue", ascending=True),
+    x="total_revenue",
+    y="product_type",
+    orientation="h",
+    text="total_revenue",
+    labels={"total_revenue": "Revenue", "product_type": "Product Type"}
+)
+fig_bar.update_traces(texttemplate="₹%{text:,.0f}", textposition="outside")
+fig_bar.update_layout(height=500, template="plotly_white")
+st.plotly_chart(fig_bar, use_container_width=True)
+
+# --- Module 3: Category revenue distribution (pie chart) ---
 st.subheader("Category Revenue Distribution")
 cat_rev = filtered.groupby("product_category")["revenue"].sum().reset_index()
 fig1 = px.pie(cat_rev, names="product_category", values="revenue")
 st.plotly_chart(fig1, use_container_width=True)
 
-# --- Module 3: Popularity vs Revenue scatter ---
+# --- Module 4: Popularity vs Revenue scatter ---
 st.subheader("Popularity vs Revenue")
 scatter_data = filtered.groupby("product_type").agg(
     units=("transaction_qty", "sum"),
     revenue=("revenue", "sum")
-).reset_index()
-fig2 = px.scatter(scatter_data, x="units", y="revenue", text="product_type", size="revenue")
+).reset_index().sort_values("revenue", ascending=False).reset_index(drop=True)
+
+# Sirf top 15 ko label do, baaki sirf hover pe
+scatter_data["label"] = scatter_data["product_type"]
+scatter_data.loc[scatter_data.index >= 15, "label"] = ""
+
+fig2 = px.scatter(
+    scatter_data, x="units", y="revenue", size="revenue",
+    color="product_type", hover_name="product_type", text="label"
+)
+fig2.update_traces(textposition="top center", textfont=dict(size=9))
+fig2.update_layout(height=600, template="plotly_white", showlegend=False)
 st.plotly_chart(fig2, use_container_width=True)
 
-# --- Module 4: Product drill-down table ---
+# --- Module 5: Pareto Chart (80/20 analysis) ---
+st.subheader("Pareto Analysis — Revenue Concentration")
+pareto_data = filtered.groupby("product_type")["revenue"].sum().reset_index()
+pareto_data = pareto_data.sort_values("revenue", ascending=False).reset_index(drop=True)
+pareto_data["cumulative_pct"] = (pareto_data["revenue"].cumsum() / pareto_data["revenue"].sum() * 100).round(2)
+
+import plotly.graph_objects as go
+fig_pareto = go.Figure()
+fig_pareto.add_trace(go.Bar(x=pareto_data["product_type"], y=pareto_data["revenue"], name="Revenue"))
+fig_pareto.add_trace(go.Scatter(
+    x=pareto_data["product_type"], y=pareto_data["cumulative_pct"],
+    name="Cumulative %", yaxis="y2", mode="lines+markers", line=dict(color="red")
+))
+fig_pareto.add_hline(y=80, line_dash="dash", line_color="green", yref="y2")
+fig_pareto.update_layout(
+    yaxis=dict(title="Revenue"),
+    yaxis2=dict(title="Cumulative %", overlaying="y", side="right", range=[0, 100]),
+    height=550, template="plotly_white", xaxis_tickangle=-90
+)
+st.plotly_chart(fig_pareto, use_container_width=True)
+
+# --- Module 6: Product drill-down table ---
 st.subheader("Product Drill-Down")
 drilldown = filtered.groupby(["product_category", "product_type", "product_detail"]).agg(
     total_revenue=("revenue", "sum"),
