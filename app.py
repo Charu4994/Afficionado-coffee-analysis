@@ -9,6 +9,7 @@ df = pd.read_csv("Afficionado Coffee Roasters.xlsx - Transactions.csv")
 df["revenue"] = df["transaction_qty"] * df["unit_price"]
 
 st.title("☕ Product Optimization & Revenue Contribution Dashboard")
+st.caption("Afficionado Coffee Roasters — Product & Revenue Analytics")
 
 # --- Sidebar filters ---
 st.sidebar.header("Filters")
