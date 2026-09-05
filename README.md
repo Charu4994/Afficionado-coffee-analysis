@@ -31,4 +31,4 @@ Transaction-level sales data with 11 fields: `transaction_id`, `year`, `transact
 - **Plotly** — interactive visualizations
 - **Streamlit** — web dashboard
 
-## 📁 Repository Structure
+
